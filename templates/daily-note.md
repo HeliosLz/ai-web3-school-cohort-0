@@ -1,45 +1,44 @@
 # {{YYYY-MM-DD}} 学习日志
 
-## 今日目标（来自 Handbook / WCB Learning）
+## 今日主题
 
-- 课程模块：
-- 关联 Handbook 章节：
-- WCB 打卡入口：
+- Handbook 节点：
+- 关联 cohort Week：
+- 提交入口：https://intensivecolearn.ing/en（"Check-in" 按钮）
 
-## 三条路径
+## Agent 整理的精炼摘要（看完 Handbook 后用自己的话再写一遍）
 
-### 最小路径（≤ 30 分钟）
+> {{Agent 在这里写一段 ≤200 字的浓缩，留下面"复述"那栏给学员闭卷答}}
+
+## 我用自己的话复述（关掉 Handbook 标签页再写）
+
+-
+-
+
+## 今日最小实验
+
+- 选择的实验：
+- 产物（代码 / 截图 / 链接）：
+
+## 我的卡点
+
+> 任何卡点同步整理一份到 `handbook-feedback/`，包含：Handbook 链接、问题描述、建议改法。
 
 - [ ]
 
-### 推荐路径（≤ 1 小时）
+## Follow-up
 
 - [ ]
 
-### 挑战路径（自选）
+## Handbook / 课程反馈
 
 - [ ]
 
-## 我做了什么
+## 打卡草稿（粘到 intensivecolearn.ing Check-in 表单的 Markdown）
 
--
-
-## 收获 / 关键概念
-
--
-
-## 卡点 / 问题
-
-> 任何卡点都同步整理一份到 `handbook-feedback/`，包含：Handbook 链接、问题描述、建议改法。
-
--
-
-## 打卡草稿
-
+```markdown
+{{200–500 字精炼正文 —— 从上面浓缩}}
 ```
-{{打卡内容 —— 简短、可直接粘贴到 WCB 平台}}
-```
 
-- 打卡链接：
-- 是否已提交：[ ]
-- 提交后回填记录：
+- 提交入口：https://intensivecolearn.ing/en → 登录 → AI × Web3 School → 左侧 "Check-in"
+- 提交后回填提交时间 / 截图：

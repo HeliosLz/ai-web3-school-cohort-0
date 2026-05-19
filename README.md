@@ -4,8 +4,8 @@
 
 - **Handbook**：https://aiweb3.school/zh/handbook/
 - **WCB 课程页**：https://web3career.build/zh/programs/AI-Web3-School
-- **打卡仓库**（cohort 共建 repo）：https://github.com/IntensiveCoLearning/AI-Web3-School
-- **我的打卡条目**：[notes/HeliosLz.md](https://github.com/IntensiveCoLearning/AI-Web3-School/blob/main/notes/HeliosLz.md)
+- **打卡入口**：https://intensivecolearn.ing/en（用注册时的 GitHub 账号登录，左侧 "Check-in" 按钮）
+- **后台镜像**（不要手改）：https://github.com/IntensiveCoLearning/AI-Web3-School/blob/main/notes/HeliosLz.md
 
 ## 目录结构
 
@@ -35,15 +35,15 @@ WCB Agent API 的 secret key 只放在本地环境变量（`WCB_AGENT_SECRET_API
 
 ## 工作流
 
-两个仓库各司其职：
+两个地方各司其职：
 
 - **个人仓库（本仓库）= proof-of-work workspace**：深度笔记、实验代码、问题沉淀、Hackathon 项目。
-- **cohort 共建仓库 = 打卡 sink**：每日往 `notes/HeliosLz.md` 追加一个 `<!-- DAILY_CHECKIN_YYYY-MM-DD_START/END -->` 块作为打卡。
+- **intensivecolearn.ing 网站 = 打卡 sink**：点 "Check-in" 按钮 → 粘 Markdown → "Submit study notes"。后台自动同步到 cohort GitHub repo（`notes/HeliosLz.md`），**学员不要手改那个文件**。
 
 每日节奏：
 
 1. 学习 Handbook 当日章节，做题 / 实验。
 2. 在 `daily/YYYY-MM-DD.md` 写完整笔记和 follow-up（**source of truth**）。
-3. 从 daily note 中提炼一段精炼正文 → 追加到 cohort 仓库 `notes/HeliosLz.md` 的当日块 → PR / push。
+3. 从 daily note 中提炼一段精炼正文（200–500 字 Markdown）→ 粘到 intensivecolearn.ing 的 Check-in 表单 → Submit。
 4. 实验代码进 `experiments/`，对 Handbook 的问题进 `handbook-feedback/`。
 5. 本地 `git push` 个人仓库（每天至少一次）。
