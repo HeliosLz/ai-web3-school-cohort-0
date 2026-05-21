@@ -107,6 +107,8 @@ Week 3 末完成 proposal + 技术路径 + tracer-bullet 跑通。
 每天的工作流：
 
 1. 读当日 Handbook 节点 + 必要实验 → 完整笔记落 `daily/YYYY-MM-DD.md`
-2. 从 daily 提炼精炼正文 → 追加到 cohort 仓库 `notes/HeliosLz.md` 的 `<!-- DAILY_CHECKIN_YYYY-MM-DD_START/END -->` 块
-3. 实验代码 → `experiments/`；Handbook 问题 → `handbook-feedback/`
-4. 个人仓库 `git push`
+2. 从 daily 提炼精炼打卡正文（即 daily 文件末尾的"打卡草稿"块）
+3. 打开 [intensivecolearn.ing](https://intensivecolearn.ing/en) → 用注册时的 GitHub 账号登录 → AI × Web3 School → 左侧 **Check-in** → 粘贴打卡正文提交
+   - 站点后台会镜像到 https://github.com/IntensiveCoLearning/AI-Web3-School/blob/main/notes/HeliosLz.md（**不要手改这个文件**）
+4. 实验代码 → `experiments/`；Handbook 问题 → `handbook-feedback/`
+5. 个人仓库 `git push`
