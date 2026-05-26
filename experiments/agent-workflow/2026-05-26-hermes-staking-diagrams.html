@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hermes Staking Deposit — Task Graph + State Machine</title>
+<style>
+  :root { --bg:#0f1115; --card:#181b22; --fg:#e6e6e6; --muted:#9aa3b2; --accent:#ffcc44; --line:#2a2f3a; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+         font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+         line-height:1.6; padding:32px 20px; }
+  .wrap { max-width:1000px; margin:0 auto; }
+  h1 { font-size:1.5rem; margin:0 0 4px; }
+  h2 { font-size:1.15rem; margin:40px 0 8px; border-left:3px solid var(--accent); padding-left:10px; }
+  .sub { color:var(--muted); font-size:.9rem; margin:0 0 8px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:20px; margin:12px 0; overflow:auto; }
+  .legend { font-size:.85rem; color:var(--muted); margin:6px 0 0; }
+  .legend b { color:var(--accent); }
+  a { color:#7db4ff; }
+  code { background:#222733; padding:1px 5px; border-radius:4px; font-size:.85em; }
+  .gate { color:var(--accent); font-weight:600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Hermes Staking Deposit — 流程图</h1>
+  <p class="sub">2026-05-26 · ETH solo staking 的一次 32 ETH deposit · 配套设计文档见
+     <a href="./2026-05-26-hermes-staking-taskgraph.md">taskgraph.md</a></p>
+
+  <h2>1. Task Graph（节点 + 依赖 + 停止条件）</h2>
+  <p class="legend">缝在 <b>generate_plan → HUMAN GATE</b> 之间；<b class="gate">Auditor 住在 risk_summary 节点</b>，把人看不懂的计划翻成可判风险的摘要。STOP 都是<b>安全终态</b>。</p>
+  <div class="card">
+    <pre class="mermaid">
+flowchart TD
+    A["1 · read_intent<br><i>意图欠定义→反问,不假设</i>"] --> B["2 · load_context<br><i>只读:余额/合约/网络/gas</i>"]
+    B -->|余额不足 / 错链| STOP1(["STOP · cancelled"])
+    B --> C["3 · generate_plan<br><i>keypair / withdrawal creds / deposit_data</i>"]
+    C -->|withdrawal creds 指向他人| STOP1
+    C --> D{"4 · simulate"}
+    D -->|revert| SF(["STOP · simulation_failed"])
+    D -->|通过| E["5 · risk_summary<br>★ Auditor 住这里 ★<br><i>翻译成人可读的三类变化</i>"]
+    E --> G{"6 · HUMAN GATE ⚠<br>不可逆 · 需人确认"}
+    G -->|拒绝 / policy 越界| STOP1
+    G -->|批准| H["7 · unlock_session_key<br><i>仅解锁这一笔额度+合约</i>"]
+    H --> I["8 · send_deposit_tx<br><i>不可逆写</i>"]
+    I -->|发送失败先查是否已广播| I
+    I -->|pending 超时| W(["waiting · 绝不重发"])
+    I -->|已广播| J{"9 · track"}
+    J -->|reverted| RV(["reverted"])
+    J -->|confirmed| K["10 · record<br><i>trace: tx hash / pubkey / 人批记录</i>"]
+    K --> DONE(["confirmed"])
+
+    classDef stop fill:#3a1f1f,stroke:#a33,color:#f3d0d0;
+    classDef done fill:#1f3a26,stroke:#3a8,color:#cfeede;
+    classDef auditor fill:#3a3320,stroke:#ffcc44,color:#ffe9a8,stroke-width:2px;
+    classDef gate fill:#3a2f20,stroke:#ffcc44,color:#ffe9a8,stroke-width:2px;
+    class STOP1,SF,RV,W stop;
+    class DONE done;
+    class E auditor;
+    class G gate;
+    </pre>
+  </div>
+
+  <h2>2. State Machine（状态 + 转移）</h2>
+  <p class="legend">价值在<b>可恢复</b>：刷新 / pending / RPC 失败 / 模型重试时，系统不忘进度、<b>不重复执行危险动作</b>。<code>submitted</code> 之后锁死，不允许"重跑"。</p>
+  <div class="card">
+    <pre class="mermaid">
+stateDiagram-v2
+    [*] --> draft
+    draft --> context_loaded
+    context_loaded --> plan_ready
+    plan_ready --> simulation_failed
+    plan_ready --> waiting_user_confirmation
+    waiting_user_confirmation --> cancelled : 人拒绝 / policy 越界
+    waiting_user_confirmation --> submitted : 人批准 + 发送
+    submitted --> waiting : pending 超时(只查不发)
+    submitted --> confirmed
+    submitted --> reverted
+    waiting --> confirmed
+    waiting --> reverted
+    simulation_failed --> [*]
+    cancelled --> [*]
+    confirmed --> [*]
+    reverted --> [*]
+
+    note right of waiting_user_confirmation : 缝在这<br/>(planning→review)
+    note right of submitted : 锁死区<br/>不可逆动作已发出
+    </pre>
+  </div>
+
+</div>
+
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({ startOnLoad: true, theme: "dark",
+    flowchart: { curve: "basis", nodeSpacing: 40, rankSpacing: 50 } });
+</script>
+</body>
+</html>

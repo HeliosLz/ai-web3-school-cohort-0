@@ -12,23 +12,7 @@
 
 ## 1. Task Graph（节点 + 依赖 + 每步 输入/输出/工具/停止条件）
 
-```
-[1] read_intent
-      └─> [2] load_context ──> [3] generate_plan ──> [4] simulate
-                                                        │
-                                          ┌─────────────┴─── 失败 ──> [S:simulation_failed] STOP
-                                          │ 成功
-                                          ▼
-                                    [5] risk_summary ──> [6] HUMAN GATE ⚠️ ──┬── 拒绝 ──> [S:cancelled] STOP
-                                                                              │ 批准
-                                                                              ▼
-                                                              [7] unlock_session_key ──> [8] send_deposit_tx
-                                                                                              │
-                                                                  ┌───────────────────────────┤
-                                                                  │ pending 超时          tx 已广播
-                                                                  ▼                           ▼
-                                                           [S:waiting] 不重发          [9] track ──> [S:confirmed] ──> [10] record
-```
+> 📊 **可渲染流程图见 [`2026-05-26-hermes-staking-diagrams.html`](./2026-05-26-hermes-staking-diagrams.html)**（浏览器打开，Mermaid 渲染 task graph + 状态机）。下表是同一张图的逐节点规格。
 
 | # | 节点 | 输入 | 输出 | 可用工具 | 停止条件 |
 |---|------|------|------|----------|----------|
@@ -49,18 +33,7 @@
 
 ## 2. State Machine（与 Handbook 状态名对齐）
 
-```
-draft
-  → context_loaded         (节点2 成功)
-  → plan_ready             (节点3 成功)
-  → simulation_failed      (节点4 失败) [终态-安全]
-  → waiting_user_confirmation  (节点5→6，缝在这)
-  → cancelled              (人拒绝 / policy 越界) [终态-安全]
-  → submitted              (节点8 tx 已广播)
-  → waiting                (pending 超时，挂起，绝不重发) 
-  → confirmed              (节点9 成功) [终态]
-  → reverted               (节点9 链上失败) [终态]
-```
+> 📊 状态图见 [`diagrams.html`](./2026-05-26-hermes-staking-diagrams.html) 第 2 节。状态：`draft → context_loaded → plan_ready →`（分叉）`simulation_failed`[终态-安全] / `waiting_user_confirmation`（缝在这）`→ cancelled`[终态-安全] / `submitted → waiting`(pending超时,绝不重发)`/ confirmed / reverted`[终态]。
 
 **可恢复性（State Machine 的真正价值，我昨天复述漏的点）**：
 - 用户刷新页面 → 系统从 `waiting_user_confirmation` 恢复，不重新生成计划、不重复 deposit。
