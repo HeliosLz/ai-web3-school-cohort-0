@@ -1,93 +1,74 @@
 # Hackathon Ideation
 
-> Week 2 产物：列出 2-3 个候选方向，并用 cohort 5 问判断它是不是 AI x Web3 真交叉，而不是 buzzword 拼接。
+> **2026-06-02 重写**：hackathon 规则落定（https://casualhackathon.com/hackathons/cmpsjubkg0003p80kxuzrdyjy），方向重构。
+> 旧版"32 ETH staking 单步审查 + 不真转钱"被规则推翻（Cobo 要求 Agent 真实资金执行，不收纯流程设计层）。旧框架见 git 历史。
 
-## 候选 1：Hermes Auditor - staking transaction risk reviewer
+## 比赛硬约束（来自规则页）
 
-### 一句话
+- **时间**：Build 6.1–6.12 / **提交截止 6.13 12:00（UTC+8）** / Demo Day 6.14 / 获奖公示 6.17
+- **必须可运行 Demo**，不接受 PPT / 概念 / Mockup
+- **每队只提交一个项目，进一个赛道**（项目可归多赛道时，选最能体现价值的方向）
+- 奖池 7000 USDT（Cobo 3500 / Z.AI 3500）
+- 单干 · ~1 小时/天 · 0 行代码起步 → 承重墙只能有一面
 
-Hermes Auditor 守在 `planning -> review -> authorization` 这条缝上，把 Agent 生成的不可读 staking 计划、calldata、simulation、session key scope 翻译成人能快速判断的风险摘要，并在字段不一致时 STOP。
+## 锁定方向：长程可审计 Agent，主攻 Cobo，保留 Z.AI 选择权
 
-### 为什么是 AI x Web3
+**一句话**：一个 GLM-5.1 驱动、能自主拆解多步任务的 Agent，自主完成所有**可逆**的准备工作（发现 / 比价 / 拆解 / 构造 / 模拟 / 迭代修复），在走到**不可逆的资金操作**时由 Auditor 停下、标红、等用户放行，再经 **Cobo Agentic Wallet (CAW)** 在测试网真实执行。
 
-AI 侧的问题是：Agent 会把模糊用户意图补全成具体行动计划，但模型输出有概率性，不能直接变成不可逆交易。
+### 核心设计洞察（这是项目最锋利的点）
 
-Web3 侧的问题是：staking deposit 是 32 ETH、官方 deposit contract、withdrawal credentials、session key、nonce、gas、tx hash 共同组成的不可逆链上动作，错误可以公开验证，但未必可撤销。
+> **长程自主跑在"可逆"的活上，human gate 只卡在"不可逆"那一步。**
 
-Auditor 的价值在两侧接缝：它不是单纯聊天助手，也不是普通钱包提示框，而是把 AI plan 和 Web3 execution 之间的差异结构化、复算、标红，再交给用户确认。
+Auditor 因此从"碍事的限制器"升级成"**让 Agent 敢于长程自主的前提**"——正因为有人守着不可逆那道闸，才敢让 Agent 自己跑那么久。这一句同时命中两个赛道：长程自主 = Z.AI，安全边界 + CAW 真执行 = Cobo。
 
-### Cohort 5 问
+### 赛道决定
 
-| 问题 | 当前答案 |
+- **主攻 Cobo（Agentic Economy × CAW）**：Auditor 的权限控制 / 安全隔离 / 风险边界，正是 Cobo **评审侧重点**白纸黑字要的（"项目需体现 CAW 在权限控制、安全隔离方面的价值""风险边界说明"）。最稳的拿分点。
+- **GLM-5.1 当 Agent 的脑**：反正要个模型驱动 planning，用 GLM-5.1 = 免费保留 Z.AI 资格。
+- **长程是架构与叙事，不是第二个合规目标**：能做多少做多少，绝不拖垮"可运行"承重墙。提交那刻按分数挑赛道。
+
+### 场景（待 Open Day 确认 CAW 能力后定稿）
+
+倾向 **Agent Resource Procurement（Cobo 建议方向 03）**：Agent 按任务自主发现 / 比价 / 采购数据、API、算力等资源，Auditor 把关那笔采购支付，CAW 执行。
+- 理由：天然就是"长程自主准备（发现比价）+ 不可逆支付（gate）"，比 Autonomous Trading 少很多移动部件，可运行性高。
+- 备选：Agent-Native Payments（402）/ A2A 分账。Open Day 问清 CAW 支持的链 / 操作类型 / 测试网后定。
+
+## Cohort 5 问（按新框架重答）
+
+| 问题 | 答案 |
 |---|---|
-| 谁发起？ | 用户发起高层意图，例如"帮我准备一次 32 ETH solo staking deposit"。Agent 也可能发起后续建议，但不可逆动作必须回到用户确认。 |
-| 谁执行？ | Agent 生成 staking plan，Web3 tools 构造和模拟 tx，Auditor 生成 risk summary，session key / wallet policy 执行有界授权，最终 send tool 发交易。 |
-| 谁付钱？ | 用户支付 32 ETH 本金和 gas。产品层可能由项目方承担少量 RPC / simulation / AI 推理成本。这里是最需要验证的商业问题：Auditor 是否能作为高价值 staking flow 的安全层收费。 |
-| 谁验证？ | 系统验证 raw_facts / derived_checks / simulation / policy；用户验证 risk summary；链上验证最终交易；回放日志和 golden set 验证 Auditor 是否漏报或误报。 |
-| 谁担风险？ | 用户承担资金损失和提款权错误的最终风险；产品方承担误导性摘要、漏拦截、重复提交造成的责任；Agent / tool layer 必须通过 STOP、single-use authorization、schema binding 降低风险。 |
+| 谁发起？ | 用户给高层意图 + 预算（如"用 ≤50 测试 USDC 帮我采购完成 X 任务所需的数据/API"），Agent 自主拆解为多步计划。 |
+| 谁执行？ | Agent（GLM-5.1 驱动）自主跑可逆准备（发现/比价/构造/模拟/迭代）；Auditor 生成 risk summary 把关不可逆步；CAW 在授权边界内真实执行资金操作。 |
+| 谁付钱？ | 用户的 CAW 账户资金（测试网）；Agent 在用户授权的边界内支配。商业层：安全审计 + 边界执行可作为 agentic commerce 的信任层收费。 |
+| 谁验证？ | 系统验 raw facts / simulation / policy；用户验 risk summary 放行不可逆步；链上验 CAW 交易；回放日志 + golden set 验 Auditor 是否漏报/误报。 |
+| 谁担风险？ | 用户承担资金损失；产品方承担误导摘要/漏拦截；Auditor 用 STOP + single-use 授权 + 字段绑定 + CAW 权限隔离降风险。 |
 
-### 保护的资产
+## 可平移的已有资产（旧设计几乎不浪费）
 
-- 32 ETH 本金
-- `withdrawal_credentials` / 提款权
-- official deposit contract address
-- user confirmation 的完整性
-- session key scope
-- chain-aware context 的新鲜度和来源
+旧设计本就是"审一笔不可逆资金动作"，把 `deposit` 换成 `CAW 的一笔 payment/procurement` 基本平移：
 
-### 核心 threat model
+- **threat_model**（5.30）：transaction substitution / context poisoning / authorization replay / tool misuse / stale context —— 五类威胁对 CAW 资金操作同样成立，+6.01 新增恶意文档注入。
+- **authorization_package**（5.29）：`risk_summary → user_confirmation → session_key_scope → execution_allowed`，session_key 换成 CAW 的权限/policy。
+- **web3 tool specs**（5.27）：A–E 工具阶梯（read/draft/simulate/wallet/write）平移到 CAW 调用。
+- **FSM 状态机图**：IDLE→PLANNING→RISK_REVIEW→AUTHORIZED→SUBMITTING→DONE（+STOPPED/BROADCAST_UNKNOWN），把 SUBMITTING 接到 CAW 执行。
+- **架构**：LangGraph（[[project_architecture_langgraph.md]]）——interrupt=HUMAN GATE，checkpointer=回放，GLM-5.1 接进 node 当 planning 脑。
 
-| Threat | 例子 | Auditor / system response |
-|---|---|---|
-| transaction substitution | 用户确认的是 withdrawal address A，submit 前 calldata 变成 B | `calldata_hash` / `deposit_data_root` / `withdrawal_credentials_raw` mismatch -> STOP_AND_REVIEW |
-| context poisoning | 错误 context 声称 attacker 地址是用户提款地址 | 要求 provenance + ownership proof + cross-check，不满足 STOP_OR_REQUIRE_PROOF |
-| authorization replay | 旧 confirmation / session key 在 15 分钟内被重复使用 | `max_transactions=1`、single-use confirmation、submit 后 mark used / revoke |
-| tool misuse | 用户授权 staking deposit，但 Agent 调用 x402 payment / generic transfer / swap | allowed_tools / allowed_contracts / allowed_functions 硬拦截 |
-| stale context execution | 使用旧 gas / balance / nonce 发送交易 | submit 前 REFRESH，刷新后不满足条件则 BLOCK_SUBMIT |
+## 承重墙 / 最小可跑核（先立这一面）
 
-### 最小 demo 路径
+```text
+用户意图+预算
+  → Agent (GLM-5.1) 自主拆解 + 准备一笔 CAW 资金操作（可逆，可多步）
+  → Auditor 生成 risk summary + 字段绑定校验
+  → 用户放行（LangGraph interrupt）
+  → CAW 在测试网真实执行一笔
+  → 回放日志（LangGraph checkpointer）
+```
 
-1. 输入：一份 staking plan JSON + context package + tx draft + simulation result + session key scope。
-2. Auditor 生成 risk summary：资产变化、权限变化、目标对象、失败风险、来源核对。
-3. 用户确认后生成 authorization package。
-4. 提交前做 refresh / revalidate。
-5. 展示 5 个 regression cases：正常通过、合约地址错误、withdrawal credentials 错误、calldata 被偷换、旧 authorization replay。
+立住后再往上加砖：长程步数、自我纠错、更多 regression cases（含恶意文档注入）。
 
-### Demo 不做什么
+## 待决（部分留给今晚 Open Day 6.02 20:00–21:00）
 
-- 不真实转 32 ETH。
-- 不自研完整 wallet。
-- 不做通用合约审计。
-- 不承诺自动选 validator 或收益优化。
-
-## 候选 2：Agent Wallet Policy Auditor - policy mirror checker
-
-### 一句话
-
-给定链上 session key / smart account policy，自动生成应用层 guardrails mirror，并检查两层是否一致，避免 Agent 以为自己能做的事和链上真正允许的事不一致。
-
-### Cohort 5 问
-
-| 问题 | 当前答案 |
-|---|---|
-| 谁发起？ | 开发者或 wallet operator 在配置 session key policy 后发起检查。 |
-| 谁执行？ | Auditor 读取 policy schema，生成 guardrail rules，跑测试样本和组合攻击检查。 |
-| 谁付钱？ | 开发团队 / wallet provider / staking service 付钱，因为这是上线前安全检查。 |
-| 谁验证？ | 链上 policy 是 canonical source；应用层 guardrails 是 mirror；测试集验证 mirror 是否漏掉 allowed action / forbidden action。 |
-| 谁担风险？ | 如果 mirror 和链上 policy 不一致，用户承担资产风险，产品方承担安全责任。 |
-
-### 当前判断
-
-这是很强的 AI x Web3 工程方向，但依赖具体 policy schema（例如 smart sessions / account abstraction SDK）。Hackathon 上可能比候选 1 更偏开发工具，demo 需要接真实库文档和 schema。
-
-## 暂定排序
-
-1. **Hermes Auditor - staking transaction risk reviewer**：更贴近当前连续实验，用户价值和 demo 场景清晰。
-2. **Agent Wallet Policy Auditor - policy mirror checker**：技术味更强，适合后续作为候选 1 的底层模块或第二 demo。
-
-## Week 2 末待决
-
-- [ ] 选择最终主线：staking transaction reviewer vs policy mirror checker。
-- [ ] Q11 架构决定：FSM 实现路径（自研 / LangGraph / LangGraph+SDK）。
-- [ ] 把 `context_package`、`authorization_package`、`threat_model` 合并成一份 tracer-bullet 输入输出 schema。
-- [ ] 选 5 个 regression cases，防止 Auditor 变成"全打 FAIL"或"只会解释不会拦截"。
+- [ ] **CAW 能力确认**：支持哪些链 / 操作类型（payment / transfer / procurement / treasury）？测试网？SDK 接入难度？API 补贴怎么申请？
+- [ ] **场景定稿**：Agent Resource Procurement vs Payments vs A2A——按 CAW 实际能力选。
+- [ ] **GLM-5.1 接入**：docs.z.ai，确认 API 接入 + LangGraph 怎么对接。
+- [ ] **最小 golden set**：5–6 个 regression cases（正常通过 / 合约错 / 授权 replay / 字段偷换 / 恶意文档注入 / 余额不足）。
