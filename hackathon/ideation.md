@@ -21,17 +21,30 @@
 
 Auditor 因此从"碍事的限制器"升级成"**让 Agent 敢于长程自主的前提**"——正因为有人守着不可逆那道闸，才敢让 Agent 自己跑那么久。这一句同时命中两个赛道：长程自主 = Z.AI，安全边界 + CAW 真执行 = Cobo。
 
+### ⚠️ 关键边界（2026-06-03 调研 Cobo 后修正）：Auditor 坐在 CAW **之上**，不重写它
+
+读 Cobo 文档后发现：**CAW 的 Pact 已经做完了授权执行层**——Pact = 意图+执行计划+policy+完成条件，owner 批准，签名层强制 allowlist/额度（agent 碰不到私钥、绕不过），完整审计、随时 revoke、MPC 双签。这几乎逐字就是旧 `authorization_package`。
+
+→ **不要重写这层**，否则评委看到的是"把 Cobo 自家核心功能重做一遍"。Auditor 的差异化只能在 CAW **够不到**的三件事上（CAW 只查"在不在 allowlist/额度内"，不查下面这些）：
+
+1. **语义正确性**：这笔采购真服务用户意图吗？vendor 是真的、还是恰好落在过宽 allowlist 里的**仿冒地址**？价格合理吗？
+2. **输入侧防注入**：agent 被恶意文档/context 污染，误把 attacker 当合法 vendor，而 pact policy 够宽 → CAW 会放行；Auditor 在 planning 阶段就拦（= 6.01 学的输入侧攻击）。
+3. **可读 risk summary**：CAW 的 Pact 第 3 步"你审阅批准"给的是通用风险展示；Auditor 产出专业版，让 owner 的批准从橡皮图章变成真决策（= 5.25 最弱环 planning→review 可读性）。
+
+**定位一句话**：CAW = 无法被越权的合规部门（执行/审计/撤销，直接用）；**Hermes Auditor = 坐在 CAW 之上的分析师**（语义 + 防注入 + 可读摘要）。这正好落在 [[project_auditor_seam]] 早定的 risk_summary 节点上。
+
 ### 赛道决定
 
 - **主攻 Cobo（Agentic Economy × CAW）**：Auditor 的权限控制 / 安全隔离 / 风险边界，正是 Cobo **评审侧重点**白纸黑字要的（"项目需体现 CAW 在权限控制、安全隔离方面的价值""风险边界说明"）。最稳的拿分点。
 - **GLM-5.1 当 Agent 的脑**：反正要个模型驱动 planning，用 GLM-5.1 = 免费保留 Z.AI 资格。
 - **长程是架构与叙事，不是第二个合规目标**：能做多少做多少，绝不拖垮"可运行"承重墙。提交那刻按分数挑赛道。
 
-### 场景（待 Open Day 确认 CAW 能力后定稿）
+### 场景（CAW 能力已调研确认，待 Open Day 终敲）
 
 倾向 **Agent Resource Procurement（Cobo 建议方向 03）**：Agent 按任务自主发现 / 比价 / 采购数据、API、算力等资源，Auditor 把关那笔采购支付，CAW 执行。
 - 理由：天然就是"长程自主准备（发现比价）+ 不可逆支付（gate）"，比 Autonomous Trading 少很多移动部件，可运行性高。
-- 备选：Agent-Native Payments（402）/ A2A 分账。Open Day 问清 CAW 支持的链 / 操作类型 / 测试网后定。
+- **x402 是金矿**：CAW 已有现成 **X402 Payment recipe**（Base，agent 自动付费调用 API）。其 typical prompt 是"只要**目标地址看起来安全**就自动付 0.2 USDC"——这个"看起来安全"现在是塞 prompt 里碰运气，**把它做硬 = Auditor + 采购/支付最自然的结合点**，且直接命中 Cobo 建议方向 01（Agent-Native Payments）。
+- 最小故事：用户"用 ≤50 测试 USDC 买齐分析 X 需要的数据"→ Agent 找到两个数据源比价 → Auditor 发现其一收款地址来源不可信（注入防御）/ 价格离谱（语义检查）标红 → 用户放行正常那个 → CAW 在 Sepolia 真付一笔 → 审计日志回放。
 
 ## Cohort 5 问（按新框架重答）
 
@@ -66,9 +79,24 @@ Auditor 因此从"碍事的限制器"升级成"**让 Agent 敢于长程自主的
 
 立住后再往上加砖：长程步数、自我纠错、更多 regression cases（含恶意文档注入）。
 
-## 待决（部分留给今晚 Open Day 6.02 20:00–21:00）
+## 接入事实（2026-06-03 调研 Cobo + Z.AI 官网，已确认）
 
-- [ ] **CAW 能力确认**：支持哪些链 / 操作类型（payment / transfer / procurement / treasury）？测试网？SDK 接入难度？API 补贴怎么申请？
-- [ ] **场景定稿**：Agent Resource Procurement vs Payments vs A2A——按 CAW 实际能力选。
-- [ ] **GLM-5.1 接入**：docs.z.ai，确认 API 接入 + LangGraph 怎么对接。
+**Cobo CAW**（公司背景：2017 成立的机构托管/钱包基础设施，$3.8T+ 资产、80+ 链、MPC 看家本领；CAW = "AI Agent 上链的信任层"，早期免费）
+- **链 / 测试网**：Ethereum / Base / Solana 主网；测试网 **Sepolia (SETH)、Base Sepolia、Solana Devnet**，**内置 faucet**。→ 测试网真执行可行。
+- **操作**：transfer / contract_call / payments / 批量 / 签名；约 20 工具，预设 Pact Drafting / Execution / Observer。Recipes 含 Token Transfer、**X402 Payment**、Uniswap/Jupiter/Aave 等。
+- **接入**：CLI + Python SDK + TS SDK + MCP；框架集成含 **LangChain**（接 LangGraph 零摩擦）/ OpenAI Agents / CrewAI / Agno。
+- **Claude Code skill**（写代码时装）：`npx skills add CoboGlobal/cobo-agentic-wallet --skill cobo-agentic-wallet-developer --yes --global`
+- 文档：cobo.com/products/agentic-wallet/manual/ · recipes：agenticwallet.cobo.com/agentic-wallet/recipes
+
+**Z.AI GLM-5.1**
+- **用 General API**（`https://api.z.ai/api/paas/v4/chat/completions`，Bearer，`model="glm-5.1"`），SDK `pip install zai-sdk` **或直接用 OpenAI SDK 改 base_url**（接 LangGraph 几乎零成本）。
+- ⚠️ **别用 GLM Coding Plan**：那是给 Claude Code 等编码工具的订阅，文档明说 SDK/第三方集成访问可能被限制——不是给你 Agent 运行时用的。
+- **API 补贴 ≠ 官网**：是 hackathon 给的，走社群申请（Telegram t.me/aiweb3school / 微信 clynn2024）→ Open Day 问。
+
+## 待决（部分留给 Open Day 6.02 20:00–21:00）
+
+- [x] ~~CAW 能力确认（链/操作/测试网/SDK）~~ → 已调研，见上
+- [x] ~~GLM-5.1 接入方式~~ → General API + OpenAI 兼容 SDK，见上
+- [ ] **Open Day 问**：① API 补贴怎么申请 ② CAW 的 Pact 批准流程能否塞进我自己的 risk summary（Auditor↔CAW 接缝）③ Agent Resource Procurement 方向 Cobo 认不认
+- [ ] **场景终敲**：Procurement（首选）vs x402 Payments——听完 Open Day 定。
 - [ ] **最小 golden set**：5–6 个 regression cases（正常通过 / 合约错 / 授权 replay / 字段偷换 / 恶意文档注入 / 余额不足）。
