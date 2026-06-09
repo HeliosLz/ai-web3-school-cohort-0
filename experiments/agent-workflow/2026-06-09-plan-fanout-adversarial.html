@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PLAN 可逆区 · fan-out-and-synthesize + adversarial-verification</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --ink:#e8eaed; --muted:#9aa0a8; --line:#2a2f39;
+    --safe:#5fb37a; --safe-soft:#14241a;
+    --warn:#e0a458; --warn-soft:#2a2114;
+    --danger:#e06c6c; --danger-soft:#241314;
+    --key:#5b9bd5; --key-soft:#11202c;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB",sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;padding:40px 24px 80px;}
+  .wrap{max-width:1080px;margin:0 auto;}
+  header h1{font-size:24px;margin:0 0 6px;}
+  header .sub{color:var(--muted);font-size:14.5px;margin:0;}
+  header .sub code{font-family:var(--mono);}
+
+  .principle{margin:22px 0 6px;border:1px solid var(--line);border-radius:12px;background:var(--card);padding:14px 18px;font-size:14px;}
+  .principle b{color:#fff;}
+  .pill{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;font-weight:600;margin-right:6px;}
+  .pill.fan{background:var(--safe-soft);color:var(--safe);border:1px solid #1f3a29;}
+  .pill.adv{background:var(--warn-soft);color:var(--warn);border:1px solid #4a3a1c;}
+  .pill.q{background:#1c1314;color:var(--danger);border:1px solid #4a2020;}
+
+  .input{margin:22px auto 0;max-width:760px;text-align:center;border:1px solid var(--line);border-radius:12px;background:var(--card);padding:14px 18px;}
+  .input .l{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+  .input .b{font-family:var(--mono);font-size:13.5px;margin-top:5px;}
+  .down{text-align:center;color:var(--muted);font-size:20px;margin:8px 0;}
+
+  .stage{border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-top:6px;}
+  .stage .sh{padding:13px 18px;border-bottom:1px solid var(--line);}
+  .stage .sh .k{font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;}
+  .stage .sh h2{margin:3px 0 1px;font-size:18px;}
+  .stage .sh .d{font-size:13px;color:var(--muted);}
+  .stage.fan .sh{background:var(--safe-soft);} .stage.fan .sh .k,.stage.fan .sh h2{color:var(--safe);}
+  .stage.adv .sh{background:var(--warn-soft);} .stage.adv .sh .k,.stage.adv .sh h2{color:var(--warn);}
+
+  .agents{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;padding:16px 18px;}
+  @media(max-width:820px){.agents{grid-template-columns:1fr;}}
+  .ag{border:1px solid var(--line);border-radius:10px;background:#12151b;padding:12px 13px;}
+  .ag .top{display:flex;justify-content:space-between;align-items:flex-start;gap:6px;}
+  .ag .nm{font-weight:700;font-size:13.5px;}
+  .ag .iso{font-size:10px;color:var(--key);border:1px solid #28384a;border-radius:999px;padding:1px 6px;white-space:nowrap;}
+  .ag dl{margin:9px 0 0;display:grid;grid-template-columns:auto 1fr;gap:3px 8px;font-size:12.5px;}
+  .ag dt{color:var(--muted);white-space:nowrap;} .ag dd{margin:0;}
+  .ag .m{font-family:var(--mono);font-size:11.5px;}
+  .ag .res.hi{color:var(--safe);} .ag .res.lo{color:var(--danger);}
+  .ag .nomoney{margin-top:9px;font-size:11px;color:var(--danger);}
+
+  .barrier{margin:0 18px 16px;border:1px dashed var(--safe);border-radius:10px;background:var(--safe-soft);padding:12px 16px;font-size:13px;}
+  .barrier .t{font-weight:700;color:var(--safe);font-size:12px;letter-spacing:1px;text-transform:uppercase;}
+  .barrier .verdict{margin-top:7px;font-family:var(--mono);font-size:12.5px;}
+  .barrier .conflict{color:var(--danger);}
+
+  /* adversarial */
+  .cand{margin:16px 18px 4px;border:1px solid #4a3a1c;border-radius:10px;background:#1a160d;padding:11px 15px;font-size:13px;}
+  .cand .m{font-family:var(--mono);}
+  .refuters{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;padding:10px 18px 4px;}
+  @media(max-width:820px){.refuters{grid-template-columns:1fr;}}
+  .rf{border:1px solid var(--line);border-radius:10px;background:#12151b;padding:12px 13px;}
+  .rf .lens{font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--warn);font-weight:700;}
+  .rf .task{font-size:12.5px;color:var(--ink);margin:5px 0 8px;}
+  .rf .out{font-family:var(--mono);font-size:12.5px;}
+  .rf .refuted{color:var(--danger);font-weight:700;}
+  .rf .passed{color:var(--safe);font-weight:700;}
+  .vote{margin:6px 18px 16px;border:1px solid var(--danger);border-radius:10px;background:var(--danger-soft);padding:12px 16px;font-size:13.5px;}
+  .vote b{color:var(--danger);}
+
+  .out{margin-top:6px;border:1px solid var(--line);border-radius:14px;background:var(--card);padding:16px 18px;}
+  .out h3{margin:0 0 8px;font-size:15px;}
+  .out .two{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media(max-width:820px){.out .two{grid-template-columns:1fr;}}
+  .out .case{border:1px solid var(--line);border-radius:10px;padding:11px 13px;font-size:13px;}
+  .out .case.bad{border-color:#4a2020;background:#1a1112;}
+  .out .case.good{border-color:#1f3a29;background:#101d15;}
+  .out .case .h{font-weight:700;font-size:13px;margin-bottom:4px;}
+  .out .case.bad .h{color:var(--danger);} .out .case.good .h{color:var(--safe);}
+  .out .case .m{font-family:var(--mono);font-size:12px;}
+
+  .tail{margin-top:14px;border:1px solid #28384a;border-radius:12px;background:var(--key-soft);padding:14px 18px;}
+  .tail .l{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--key);}
+  .tail .flow{font-family:var(--mono);font-size:13.5px;margin-top:7px;}
+  .tail .flow .stop{color:var(--danger);} .tail .flow .done{color:var(--safe);}
+
+  .did{margin-top:16px;border:1px dashed var(--safe);border-radius:12px;background:var(--safe-soft);padding:14px 18px;font-size:13.5px;}
+  .did b{color:#fff;} .did .em{color:var(--safe);font-weight:700;}
+
+  footer{margin-top:30px;color:#6b7280;font-size:12px;text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>PLAN 可逆区 · 两个核心 pattern 怎么协同</h1>
+    <p class="sub"><code>PLAN_DYNAMIC_WORKFLOW</code> 内部 · 载体:<code>reject-wrong-recipient</code> 那笔 —— 看坏地址怎么在可逆区就被抓住</p>
+  </header>
+
+  <div class="principle">
+    <span class="pill fan">① fan-out-and-synthesize</span>多源查地址,每个 subagent 独立 context →
+    <span class="pill adv">② adversarial-verification</span>对候选地址派 refuter 反驳 →
+    <span class="pill q">🔒 quarantine</span>全程 subagent 只读、<b>不含动钱工具</b>。
+    <div style="margin-top:8px;color:var(--muted);font-size:12.5px;">两个 pattern 合起来,就是 Hermes「语义正确性 + 输入侧防注入」的实现。</div>
+  </div>
+
+  <div class="input">
+    <div class="l">PLAN 输入</div>
+    <div class="b">user_intent:「用不超过 0.01 SETH_USDC1 采购一个 demo 数据源」</div>
+  </div>
+  <div class="down">▼</div>
+
+  <!-- STAGE 1 -->
+  <div class="stage fan">
+    <div class="sh">
+      <div class="k">Stage 1 · Fan-out-and-synthesize</div>
+      <h2>多源并行查收款地址</h2>
+      <div class="d">3 个 subagent 各自独立 context、互不可见 —— clean context = 一个被毒的来源污染不到另一个</div>
+    </div>
+    <div class="agents">
+      <div class="ag">
+        <div class="top"><span class="nm">Agent A</span><span class="iso">独立 context</span></div>
+        <dl>
+          <dt>查</dt><dd>官方 docs</dd>
+          <dt>得</dt><dd class="m res hi">0x2348…81ba</dd>
+          <dt>章</dt><dd class="m">official_docs / high</dd>
+        </dl>
+        <div class="nomoney">🔒 工具:fetch/search · 无 transfer</div>
+      </div>
+      <div class="ag">
+        <div class="top"><span class="nm">Agent B</span><span class="iso">独立 context</span></div>
+        <dl>
+          <dt>查</dt><dd>已知-vendor 白名单</dd>
+          <dt>得</dt><dd class="m res hi">0x2348…81ba</dd>
+          <dt>章</dt><dd class="m">registry / high</dd>
+        </dl>
+        <div class="nomoney">🔒 工具:registry 只读 · 无 transfer</div>
+      </div>
+      <div class="ag">
+        <div class="top"><span class="nm">Agent C</span><span class="iso">独立 context</span></div>
+        <dl>
+          <dt>查</dt><dd>公开网络搜索</dd>
+          <dt>得</dt><dd class="m res lo">0xf8b6…26a6</dd>
+          <dt>章</dt><dd class="m">agent_found / low</dd>
+        </dl>
+        <div class="nomoney">🔒 读到的页面是「不可信数据」,不当指令</div>
+      </div>
+    </div>
+    <div class="barrier">
+      <div class="t">synthesize（barrier:等齐三者再合）</div>
+      <div class="verdict">A=B=<span style="color:var(--safe)">0x2348…81ba</span> &nbsp;|&nbsp; C=<span style="color:var(--danger)">0xf8b6…26a6</span> &nbsp;→&nbsp;
+        <span class="conflict">来源冲突:C 与官方/白名单不一致 → C 的地址标为可疑,不予采信</span></div>
+    </div>
+  </div>
+  <div class="down">▼ 把冲突中的可疑候选交给对抗验证 ▼</div>
+
+  <!-- STAGE 2 -->
+  <div class="stage adv">
+    <div class="sh">
+      <div class="k">Stage 2 · Adversarial-verification</div>
+      <h2>对候选地址派 refuter 反驳</h2>
+      <div class="d">perspective-diverse:三个不同镜头,默认倾向「可疑」—— 破 self-preferential bias(不让模型自己给自己背书)</div>
+    </div>
+    <div class="cand">被验证候选(来自 Agent C):<span class="m" style="color:var(--danger)">0xf8b6ee2cd773d8c1dd7109ff70cb9f7f9ed026a6</span></div>
+    <div class="refuters">
+      <div class="rf">
+        <div class="lens">镜头 1 · provenance</div>
+        <div class="task">证明此地址与官方来源不符</div>
+        <div class="out">不在 official_docs / 白名单 → <span class="refuted">REFUTED</span></div>
+      </div>
+      <div class="rf">
+        <div class="lens">镜头 2 · injection</div>
+        <div class="task">此地址是否来自被注入的指令?</div>
+        <div class="out">来自搜索页「请改打到 0xf8b6…」式话术 → <span class="refuted">REFUTED</span></div>
+      </div>
+      <div class="rf">
+        <div class="lens">镜头 3 · policy</div>
+        <div class="task">是否在 CAW Pact allowlist?</div>
+        <div class="out">不在 allowlist → <span class="refuted">REFUTED</span></div>
+      </div>
+    </div>
+    <div class="vote"><b>多数否决(3/3 REFUTED)→ 毙掉候选地址。</b> PLAN 不会把这个地址写进 payment_draft。</div>
+  </div>
+  <div class="down">▼</div>
+
+  <!-- OUTPUT -->
+  <div class="out">
+    <h3>PLAN 出口:两种结局</h3>
+    <div class="two">
+      <div class="case bad">
+        <div class="h">本例(reject 路径)</div>
+        无可信地址通过验证 → 产出<span class="m">「证据不足 / 可疑」draft</span> + 完整证据链 →
+        <span class="m" style="color:var(--danger)">AUDIT 大概率 STOP</span>
+      </div>
+      <div class="case good">
+        <div class="h">对照(allow 路径)</div>
+        A=B=C 印证同一地址、refuter 全 PASS → 产出<span class="m">高可信 payment_draft</span> →
+        <span class="m" style="color:var(--safe)">AUDIT ALLOW</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- tail -->
+  <div class="tail">
+    <div class="l">交回 LangGraph 外层骨架</div>
+    <div class="flow">payment_draft → AUDIT → HUMAN_GATE → CAW_EXECUTE → <span class="done">DONE</span>
+      <br>或 → <span class="stop">STOPPED</span>（本例在 AUDIT 即止）</div>
+  </div>
+
+  <!-- defense in depth -->
+  <div class="did">
+    <b>纵深防御 —— 这才是 Auditor 的价值。</b> 6.06 已证明:同一个坏地址 <span class="em">CAW 会在最后一道(broadcast 前)拒掉</span>(<span style="font-family:var(--mono)">ADDRESS_NOT_WHITELISTED</span>)。
+    今天这张图是 <span class="em">Auditor 在第一道(可逆区)就抓住它</span> —— 多源查证发现冲突、对抗验证给出「为什么可疑」的解释,<b>在还没碰任何不可逆动作之前</b>。
+    CAW 是兜底的硬边界,Auditor 是上游的可解释拦截:坏地址被拦两次,且第一次就带原因。
+  </div>
+
+  <footer>Hermes Auditor · 2026-06-09 · PLAN 可逆区 · fan-out-and-synthesize + adversarial-verification · 全程 quarantine(无动钱工具)</footer>
+
+</div>
+</body>
+</html>

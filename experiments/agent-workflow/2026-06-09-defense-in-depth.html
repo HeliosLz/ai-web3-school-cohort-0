@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>纵深防御 · 一个坏地址要穿过五道关</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --ink:#e8eaed; --muted:#9aa0a8; --line:#2a2f39;
+    --judge:#5b9bd5; --judge-soft:#11202c;   /* 脑 / judgment */
+    --cap:#5fb37a;  --cap-soft:#14241a;       /* 手 / capability */
+    --human:#e0a458;--human-soft:#2a2114;     /* 人闸 */
+    --infra:#e06c6c;--infra-soft:#241314;     /* 基础设施 */
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB",sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;padding:40px 24px 80px;}
+  .wrap{max-width:1000px;margin:0 auto;}
+  header h1{font-size:24px;margin:0 0 6px;}
+  header .sub{color:var(--muted);font-size:14.5px;margin:0;}
+  header .sub code{font-family:var(--mono);}
+
+  /* 攻击者 chip */
+  .attacker{margin:22px auto 0;max-width:680px;text-align:center;border:1px solid #4a2020;background:var(--infra-soft);border-radius:12px;padding:13px 18px;}
+  .attacker .l{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--infra);}
+  .attacker .a{font-family:var(--mono);font-size:14px;margin-top:4px;color:var(--infra);}
+  .attacker .goal{font-size:12.5px;color:var(--muted);margin-top:3px;}
+  .down{text-align:center;color:var(--muted);font-size:18px;margin:7px 0;}
+
+  /* 区带 */
+  .zone{border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:4px;position:relative;}
+  .zone.rev{border-color:#22402c;background:#0e1712;}
+  .zone.bound{border-color:#3a2e16;background:#15110a;}
+  .zone .zlab{display:flex;justify-content:space-between;align-items:baseline;margin:0 4px 12px;}
+  .zone .zlab .t{font-size:13px;font-weight:700;letter-spacing:.5px;}
+  .zone.rev .zlab .t{color:var(--cap);}
+  .zone.bound .zlab .t{color:var(--human);}
+  .zone .zlab .s{font-size:12px;color:var(--muted);}
+
+  /* 关卡 */
+  .gate{display:grid;grid-template-columns:46px 1fr auto;gap:14px;align-items:center;border:1px solid var(--line);border-radius:11px;background:var(--card);padding:13px 15px;margin-bottom:11px;}
+  .gate:last-child{margin-bottom:0;}
+  .gate .num{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:800;color:#0f1115;}
+  .gate.g-judge .num{background:var(--judge);}
+  .gate.g-cap .num{background:var(--cap);}
+  .gate.g-human .num{background:var(--human);}
+  .gate.g-infra .num{background:var(--infra);}
+  .gate .body .nm{font-size:15px;font-weight:700;}
+  .gate .body .me{font-size:13px;color:var(--muted);margin-top:2px;}
+  .gate .body .me .m{font-family:var(--mono);font-size:12px;color:#cdd3da;}
+  .gate .side{text-align:right;min-width:128px;}
+  .gate .disc{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:999px;letter-spacing:.5px;}
+  .g-judge .disc{background:var(--judge-soft);color:var(--judge);border:1px solid #28384a;}
+  .g-cap .disc{background:var(--cap-soft);color:var(--cap);border:1px solid #1f3a29;}
+  .g-human .disc{background:var(--human-soft);color:var(--human);border:1px solid #4a3a1c;}
+  .g-infra .disc{background:var(--infra-soft);color:var(--infra);border:1px solid #4a2020;}
+  .gate .side .reason{font-size:11px;color:var(--muted);margin-top:5px;}
+  .gate .side .reason b{color:var(--ink);font-weight:600;}
+  .gate .side .blocked{font-family:var(--mono);font-size:11px;color:var(--infra);margin-top:3px;}
+
+  /* 红线 */
+  .redline{display:flex;align-items:center;gap:12px;margin:16px 6px;}
+  .redline .bar{flex:1;height:0;border-top:2px dashed var(--infra);}
+  .redline .lab{font-size:12px;color:var(--infra);font-weight:700;white-space:nowrap;}
+
+  .owner{font-size:11px;color:var(--muted);margin-top:4px;}
+  .owner b{color:var(--ink);}
+
+  /* 收口 */
+  .synth{margin-top:18px;border:1px solid var(--line);border-radius:14px;background:var(--card);padding:18px 20px;}
+  .synth h3{margin:0 0 10px;font-size:16px;}
+  .synth table{width:100%;border-collapse:collapse;font-size:13px;}
+  .synth td,.synth th{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;}
+  .synth th{color:var(--muted);font-size:12px;font-weight:600;}
+  .synth .m{font-family:var(--mono);font-size:12px;}
+  .synth .b-judge{color:var(--judge);font-weight:600;}
+  .synth .b-cap{color:var(--cap);font-weight:600;}
+  .synth .b-human{color:var(--human);font-weight:600;}
+  .synth .b-infra{color:var(--infra);font-weight:600;}
+  .synth p.k{margin:14px 0 0;font-size:14px;}
+  .synth p.k b{color:#fff;}
+
+  footer{margin-top:30px;color:#6b7280;font-size:12px;text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>纵深防御 · 一个坏地址要穿过五道关</h1>
+    <p class="sub">载体:攻击地址 <code>0xf8b6…26a6</code>(6.06 那个) · 每一道<b>单独都能拦住它</b> —— 这才叫纵深</p>
+  </header>
+
+  <div class="attacker">
+    <div class="l">攻击者目标</div>
+    <div class="a">0xf8b6ee2cd773d8c1dd7109ff70cb9f7f9ed026a6</div>
+    <div class="goal">想成为收款地址 → 让 Agent 把钱打到这里 → 上链(不可逆)</div>
+  </div>
+  <div class="down">▼ 必须依次闯过 ▼</div>
+
+  <!-- 可逆区 / Auditor -->
+  <div class="zone rev">
+    <div class="zlab">
+      <span class="t">可逆区 · Auditor</span>
+      <span class="s">全在「不可逆动作之前」· 错了能反悔 · 带可读原因</span>
+    </div>
+
+    <div class="gate g-judge">
+      <div class="num">1</div>
+      <div class="body">
+        <div class="nm">fan-out 多源印证</div>
+        <div class="me">3 个 subagent 独立 context 查官方docs / 白名单 / 公开搜索 → <span class="m">synthesize</span> 比对</div>
+      </div>
+      <div class="side">
+        <span class="disc">JUDGMENT · 脑</span>
+        <div class="reason">来源冲突:与官方/白名单<b>不一致</b></div>
+        <div class="blocked">→ 标可疑,不采信</div>
+      </div>
+    </div>
+
+    <div class="gate g-judge">
+      <div class="num">2</div>
+      <div class="body">
+        <div class="nm">adversarial 反驳</div>
+        <div class="me">perspective-diverse refuter(provenance / injection / policy / amount),默认倾向可疑</div>
+      </div>
+      <div class="side">
+        <span class="disc">JUDGMENT · 脑</span>
+        <div class="reason">多镜头 <b>REFUTED</b>(含「注入诱导」)</div>
+        <div class="blocked">→ 毙掉候选</div>
+      </div>
+    </div>
+
+    <div class="gate g-cap">
+      <div class="num">3</div>
+      <div class="body">
+        <div class="nm">quarantine 工具集</div>
+        <div class="me">planning subagent 的 <span class="m">tools</span> 里物理上没有 transfer / create_pact / sign</div>
+      </div>
+      <div class="side">
+        <span class="disc">CAPABILITY · 手</span>
+        <div class="reason"><b>能力从未授予</b>(非"禁止")</div>
+        <div class="blocked">→ 连调用都发不出</div>
+      </div>
+    </div>
+
+    <div class="owner">归属:<b>Hermes Auditor</b> —— 坐在 CAW 之上,在碰任何不可逆动作之前拦截,并给出<b>为什么可疑</b>。</div>
+  </div>
+
+  <!-- 红线 -->
+  <div class="redline">
+    <span class="bar"></span>
+    <span class="lab">▲ 不可逆边界 · payment_draft 之后才进入</span>
+    <span class="bar"></span>
+  </div>
+
+  <!-- 确定性边界 -->
+  <div class="zone bound">
+    <div class="zlab">
+      <span class="t">确定性边界</span>
+      <span class="s">编排权在代码 + 人 + 基础设施手里,不在 agent</span>
+    </div>
+
+    <div class="gate g-human">
+      <div class="num">4</div>
+      <div class="body">
+        <div class="nm">人闸 HUMAN_GATE</div>
+        <div class="me">LangGraph <span class="m">interrupt</span> 暂停,真人看 risk_summary 决定签不签</div>
+      </div>
+      <div class="side">
+        <span class="disc">BOUNDARY · 人</span>
+        <div class="reason">真人看到红旗 → <b>拒签</b></div>
+        <div class="blocked">→ STOPPED</div>
+      </div>
+    </div>
+
+    <div class="gate g-infra">
+      <div class="num">5</div>
+      <div class="body">
+        <div class="nm">CAW Pact policy</div>
+        <div class="me">Cobo Agentic Wallet 在 broadcast 前按 Pact 白名单强制校验</div>
+      </div>
+      <div class="side">
+        <span class="disc">BOUNDARY · 基础设施</span>
+        <div class="reason">不在 allowlist(6.06 已证)</div>
+        <div class="blocked">→ ADDRESS_NOT_WHITELISTED</div>
+      </div>
+    </div>
+
+    <div class="owner">归属:<b>LangGraph(④)+ Cobo CAW(⑤)</b> —— 最后的硬边界,沉默执行。</div>
+  </div>
+
+  <!-- 收口 -->
+  <div class="synth">
+    <h3>五道一览</h3>
+    <table>
+      <tr><th style="width:6%"></th><th style="width:24%">关</th><th style="width:18%">学科</th><th style="width:30%">怎么拦</th><th style="width:22%">给原因?</th></tr>
+      <tr><td><b>1</b></td><td>fan-out 多源印证</td><td><span class="b-judge">judgment · 脑</span></td><td>来源冲突</td><td>✅ 可读语义</td></tr>
+      <tr><td><b>2</b></td><td>adversarial 反驳</td><td><span class="b-judge">judgment · 脑</span></td><td>多镜头 refuted</td><td>✅ 可读语义</td></tr>
+      <tr><td><b>3</b></td><td>quarantine 工具集</td><td><span class="b-cap">capability · 手</span></td><td>能力未授予</td><td>⚙️ 结构性(发不出调用)</td></tr>
+      <tr><td><b>4</b></td><td>人闸</td><td><span class="b-human">boundary · 人</span></td><td>真人拒签</td><td>✅ 人的判断</td></tr>
+      <tr><td><b>5</b></td><td>CAW policy</td><td><span class="b-infra">boundary · 基础设施</span></td><td>白名单拒</td><td>🔒 沉默 + denial code</td></tr>
+    </table>
+    <p class="k"><b>三句话记住:</b> ①② 管<b>脑</b>(判决对不对),③ 管<b>手</b>(根本没能力),④⑤ 管<b>边界</b>(人 + 基础设施)。前三道全是 Auditor 的活、全在可逆区、<b>全带原因</b>;⑤ 是 CAW 的沉默兜底(6.06 证过)。<b>坏地址被拦五次,且第一次就带「为什么」—— 这就是「坐在 CAW 之上」的全部含义。</b></p>
+  </div>
+
+  <footer>Hermes Auditor · 2026-06-09 · 纵深防御五道关 · judgment(脑)/ capability(手)/ boundary(边界)</footer>
+
+</div>
+</body>
+</html>
